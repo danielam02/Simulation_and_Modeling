@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jul  5 22:12:12 2024
+Created on Sat Jun 29 11:18:35 2024
 
 @author: 59939, 59249, 60461
 """
@@ -20,6 +20,8 @@ grav_cte = 6.67430 * 10**(-11)
 R_earth = 6.371 * 10**6
 g_sea = 10.
 
+
+    
 
 #%%    
 def gravity(h):
@@ -42,6 +44,7 @@ def gravity(h):
     g_vector = np.array([0, -g])
     
     return g_vector
+
 
 #%%   
 def positive_f(t, f):
@@ -225,8 +228,8 @@ def nasa(h):
 
 def ad_nasa(filename, plot = False):
     """
-    Performs exponential curve fitting on data loaded from a file using NASA's 
-    atmospheric model.
+    Plots NASA's atmospheric model for air density and the air density data
+    loaded from a file.
 
     Parameters
     ----------
@@ -267,57 +270,188 @@ def ad_nasa(filename, plot = False):
     return nasa
 
 
-#%% 
-def ad_derivative(f, point, param):
+
+#%%   
+def euler(v, p, dt, param, f, ad_function):
     """
-    Approximates the derivative of the function `f` at a given `point` 
-    using the finite differences method with a step size defined in `param`.
+    Computes the next velocity, position, and acceleration using the Euler method.
 
     Parameters
     ----------
-    f : function
-        The function for which the derivative is to be calculated.
-    point : float
-        The point at which the derivative is to be approximated.
+    v : float
+        Current velocity.
+    p : float
+        Current position.
+    dt : float
+        Time step used in the re-entry simulation.
     param : dict
-        Dictionary containing parameters including 'deriv_dp', the step size 
-        for finite differences method.
+        Dictionary containing parameters including mass, area, and drag/lift 
+        coefficients of the space module.
+    f : function
+        Function that computes acceleration based on velocity, position, 
+        parameters, and the air density function.
+    ad_function : function
+        Air density function required by the acceleration function f.
 
     Returns
     -------
-    d : float
-        The approximate derivative of the function `f` at the given `point`.
+    new_v : float
+        New velocity after one time step using the Euler method.
+    new_p : float
+        New position after one time step using the Euler method.
+    new_a : float
+        Acceleration computed using the acceleration function f.
     """
-    
-    p1 = point + param['deriv_dp']
-    p2 = point - param['deriv_dp']
-    d = (f(p1) - f(p2)) / (p1 - p2)
-    
-    return d
 
+    new_p = p + v * dt
+    new_a = f(v, p, param, ad_function)
+    new_v = v + new_a * dt
 
-def gravity_derivative(h):
-    """
-    Calculates the derivative of the gravitational force with respect to 
-    height `h` above the Earth's surface.
-    
-    Parameters
-    ----------
-    h : float
-        The height above the Earth's surface at which the derivative is to be 
-        calculated.
-
-    Returns
-    -------
-    d : float
-        The derivative of the gravitational force with respect to height `h`.
-    """
-    
-    return 2 * grav_cte * earth_mass / ((R_earth + h)**3)
+    return new_v, new_p, new_a
 
 
 #%%  
-def reentrySlope_before_parachutes(v, p, param, ad_function): 
+def euler_cromer(v, p, dt, param, f, ad_function):
+    """
+    Computes the next velocity, position, and acceleration using the 
+    Euler-Cromer method.
+
+    Parameters
+    ----------
+    v : float
+        Current velocity.
+    p : float
+        Current position.
+    dt : float
+        Time step used in the re-entry simulation.
+    param : dict
+        Dictionary containing parameters including mass, area, and drag/lift 
+        coefficients of the space module.
+    f : function
+        Function that computes acceleration based on velocity, position, 
+        parameters, and the air density function.
+    ad_function : function
+        Air density function required by the acceleration function f.
+
+    Returns
+    -------
+    new_v : float
+        New velocity after one time step using the Euler-Cromer method.
+    new_p : float
+        New position after one time step using the Euler-Cromer method.
+    new_a : float
+        Acceleration computed using the acceleration function f.
+    """
+    
+    new_a = f(v, p, param, ad_function)
+    new_v = v + new_a * dt
+    new_p = p + new_v * dt
+
+    return new_v, new_p, new_a
+
+
+#%%    
+def rk2(v, p, dt, param, f, ad_function): 
+    """
+    Computes the next velocity, position, and acceleration using the Runge-Kutta
+    2nd order method.
+
+    Parameters
+    ----------
+    v : float
+        Current velocity.
+    p : float
+        Current position.
+    dt : float
+        Time step used in the re-entry simulation.
+    param : dict
+        Dictionary containing parameters including mass, area, and drag/lift 
+        coefficients of the space module.
+    f : function
+        Function that computes acceleration based on velocity, position,
+        parameters, and the air density function.
+    ad_function : function
+        Air density function required by the acceleration function f.
+
+    Returns
+    -------
+    new_v : float
+        New velocity after one time step using the Runge-Kutta 2nd order method.
+    new_p : float
+        New position after one time step using the Runge-Kutta 2nd order method.
+    new_a : float
+        Acceleration computed using the acceleration function f.
+    """
+
+    p_mid = p + 0.5 * v * dt
+    a_mid = f(v, p, param, ad_function)
+    v_mid = v + 0.5 * a_mid * dt
+    
+    p = p + v_mid * dt
+    a = f(v_mid, p_mid, param, ad_function)   
+    v = v + a * dt
+
+    return v, p, a
+
+
+#%%   
+def rk4(v, p, dt, param, f, ad_function): 
+    """
+    Computes the next velocity, position, and acceleration using the Runge-Kutta
+    4th order method.
+
+    Parameters
+    ----------
+    v : float
+        Current velocity.
+    p : float
+        Current position.
+    dt : float
+        Time step used in the re-entry simulation.
+    param : dict
+        Dictionary containing parameters including mass, area, and drag/lift 
+        coefficients of the space module.
+    f : function
+        Function that computes acceleration based on velocity, position, 
+        parameters, and air density function.
+    ad_function : function
+        Air density function required by the acceleration function f.
+
+    Returns
+    -------
+    new_v : float
+        New velocity after one time step using the Runge-Kutta 4th order method.
+    new_p : float
+        New position after one time step using the Runge-Kutta 4th order method.
+    new_a : float
+        Acceleration computed using the acceleration function f.
+    """
+
+    k1v = v
+    k1p = p
+    k1a = f(k1v, k1p, param, ad_function)
+
+    k2v = v + 0.5 * dt * k1a
+    k2p = p + 0.5 * dt * k1v
+    k2a = f(k2v, k2p, param, ad_function)
+    
+    k3v = v + 0.5 * dt * k2a
+    k3p = p + 0.5 * dt * k2v
+    k3a = f(k3v, k3p, param, ad_function)
+    
+    k4v = v + dt * k3a
+    k4p = p + dt * k3v
+    k4a = f(k4v, k4p, param, ad_function)
+    
+    v = v + (dt / 6.0) * (k1a + 2*k2a + 2*k3a + k4a)
+    p = p + (dt / 6.0) * (k1v + 2*k2v + 2*k3v + k4v)
+    a = k4a
+
+    return v, p, a
+
+        
+#%%  
+def reentrySlope_before_parachutes(v, p, param, ad_function):
     """
     Calculates the slope of the velocity vector - the acceleration - during 
     re-entry before parachute deployment.
@@ -349,7 +483,7 @@ def reentrySlope_before_parachutes(v, p, param, ad_function):
     
     return slope
 
-
+  
 #%% 
 def reentrySlope_after_parachutes(v, p, param, ad_function): 
     """
@@ -374,7 +508,6 @@ def reentrySlope_after_parachutes(v, p, param, ad_function):
         Acceleration during re-entry.
     """
     
-    
     g = gravity(p[1])
     ad = ad_function(p[1])
     
@@ -383,254 +516,6 @@ def reentrySlope_after_parachutes(v, p, param, ad_function):
             param['Cd'] + param['A_p'] * param['Cdp'])
     
     return slope
-
-
-#%%    
-def residual(u, param, dt, k, ad, slope):
-    """
-    Calculates the residual function(s) for a system of equations based on the 
-    given parameters.
-    
-    Parameters
-    ----------
-    u : array
-        The current state vector [u1, u2, u3, u4], where:
-        u1 : float - current position in x-direction
-        u2 : float - current position in y-direction
-        u3 : float - current velocity in x-direction
-        u4 : float - current velocity in y-direction
-    param : dict
-        Parameters required by the slope function.
-    dt : float
-        The time step size.
-    k : array
-        The previous state vector [xk, yk, vxk, vyk].
-    ad : function
-        Air density function required by the slope function.
-    slope : function
-        The function that calculates the acceleration.
-        
-    Returns
-    -------
-    np array
-        The array of residuals [r1, r2, r3, r4], where:
-        r1 : float - residual for position in x-direction
-        r2 : float - residual for position in y-direction
-        r3 : float - residual for velocity in x-direction
-        r4 : float - residual for velocity in y-direction
-    """
-
-    u1, u2, u3, u4 = u
-    xk, yk, vxk, vyk = k
-    
-    uv = np.array([u3, u4])
-    up = np.array([u1, u2])
-    acc = slope(uv, up, param, ad)
-    
-    f1 = u3 
-    f2 = u4
-    f3 = acc[0]  
-    f4 = acc[1]
-    
-    r1 = (1/dt) * (u1-xk) - f1
-    r2 = (1/dt) * (u2-yk) - f2
-    r3 = (1/dt) * (u3-vxk) - f3
-    r4 = (1/dt) * (u4-vyk) - f4
-    
-    return np.array([r1, r2, r3, r4])
-
-
-def jacobian(u, param, dt, ad, pc):
-    """
-    Calculates the Jacobian matrix for a system of differential equations based 
-    on the given parameters.
-
-    Parameters
-    ----------
-    u : array
-        The current state vector [u1, u2, u3, u4].
-    param : dict
-        Parameters required for the Jacobian calculation.
-    dt : float
-        The time step size.
-    ad : function
-        Function to calculate air density as a function of height.
-    pc : str
-        Parameter to differentiate between reentry phases 
-        ('reentrySlope_before_parachutes' or 'reentrySlope_after_parachutes').
-
-    Returns
-    -------
-    np array
-        The Jacobian matrix J of shape (4, 4), where J[i][j] represents 
-        the partial derivative of residual[i] with respect to u[j].
-    """
-    
-    u1, u2, u3, u4 = u
-    
-    uv = np.array([u3, u4])
-    uv_norm = np.linalg.norm(uv)
-    
-    air_density = ad(u2)
-    ad_deriv = ad_derivative(ad, u2, param)
-    g_deriv = gravity_derivative(u2)
-    
-    I = np.identity(4)
-    j = np.zeros((4, 4), dtype = float)
-    
-    if pc == reentrySlope_before_parachutes:
-        
-        j[0][2] = 1
-        
-        j[1][3] = 1
-        
-        j[2][1] = - (1/2) * (1/param['m_sm']) * param['A_sm'] * param['Cd'] * \
-                  uv_norm * u3 * ad_deriv
-                  
-        j[2][2] = - (1/2) * (1/param['m_sm']) * param['A_sm'] * param['Cd'] * \
-                 air_density * ((1/uv_norm) * u3**2 + uv_norm)
-        
-        j[2][3] = - (1/2) * (1/param['m_sm']) * param['A_sm'] * param['Cd'] * \
-                 air_density * (1/uv_norm) * u3 * u4
-        
-        j[3][1] = g_deriv + (1/2) * (1/param['m_sm']) * param['A_sm'] * \
-                  (-param['Cd'] * uv_norm * u4 + param['Cl'] * 
-                   uv_norm ** 2) * ad_deriv
-        
-        j[3][2] = - (1/2) * (1/param['m_sm']) * param['A_sm'] * air_density * \
-                  (param['Cd'] * u3 * u4 * (1/uv_norm) - param['Cl'] * 2 * u3)
-        
-        j[3][3] = - (1/2) * (1/param['m_sm']) * param['A_sm'] * air_density * \
-                  (param['Cd'] * ((1/uv_norm) * u4**2 + uv_norm) -
-                   param['Cl'] * 2 * u4)
-        
-    if pc == reentrySlope_after_parachutes:
-        
-        j[0][2] = 1
-        
-        j[1][3] = 1
-        
-        j[2][1] = - (1/2) * (1/param['m_sm']) * uv_norm * (param['A_sm'] * \
-                  param['Cd'] + param['A_p'] * param['Cdp']) * u3 * ad_deriv
-                  
-        j[2][2] = - (1/2) * air_density * (1/param['m_sm']) * (param['A_sm'] \
-                  * param['Cd'] + param['A_p'] * param['Cdp']) * ((1/uv_norm) \
-                  * u3**2 + uv_norm)
-        
-        j[2][3] = - (1/2) * air_density * (1/param['m_sm']) * (param['A_sm'] \
-                  * param['Cd'] + param['A_p'] * param['Cdp']) * (1/uv_norm) \
-                  * u3 * u4
-        
-        j[3][1] = g_deriv - (1/2) * (1/param['m_sm']) * uv_norm * \
-                  (param['A_sm'] * param['Cd'] + param['A_p'] * param['Cdp']) \
-                  * u4 * ad_deriv
-        
-        j[3][2] = - (1/2) * air_density * (1/param['m_sm']) * (param['A_sm'] \
-                  * param['Cd'] + param['A_p'] * param['Cdp']) * (1/uv_norm) \
-                  * u3 * u4
-        
-        j[3][3] = - (1/2) * air_density * (1/param['m_sm']) * (param['A_sm'] \
-                  * param['Cd'] + param['A_p'] * param['Cdp']) * ((1/uv_norm) \
-                  * u4**2 + uv_norm)    
-    
-    J = (1/dt) * I - j
-    
-    return J
-
-
-#%% 
-def newton_raphson(guess, dt, param, res, jac): 
-    """
-    Performs Newton-Raphson iteration to solve a system of nonlinear equations.
-
-    Parameters
-    ----------
-    guess : array
-        Initial guess for the solution vector.
-    dt : float
-        Time step size.
-    param : dict
-        Parameters required by the residual function and Jacobian function and 
-        for convergence conditions of the method.
-    res : function
-        Function that computes the residual (system of nonlinear equations).
-    jac : function
-        Function that computes the Jacobian matrix of `res` (partial derivatives 
-        of `res` w.r.t. `u`).
-
-    Returns
-    -------
-    np array
-        The solution vector `u` that satisfies `res(u, param, dt) ≈ 0` within 
-        the specified tolerance.
-    """
-    
-    u = guess
-    tolerance = param['newt_tol'] 
-    
-    i = 0
-    while np.linalg.norm(res(u, param, dt)) > tolerance and \
-          i < param['newt_max_it']: 
-        
-        res_mx = res(u, param, dt)
-        jac_mx = jac(u, param, dt)
-        
-        J_inv = np.linalg.pinv(jac_mx)
-        u = u - np.dot(J_inv, res_mx) 
-
-        i += 1
-        
-    return u 
-
-
-#%% 
-def backward_euler(v, p, dt, param, acc_slope, ad_function):
-    """
-    Performs a single step of the backward Euler method for solving differential 
-    equations.
-
-    Parameters
-    ----------
-    v : array
-        Current velocity vector [vx, vy].
-    p : array
-        Current position vector [x, y].
-    dt : float
-        Time step size.
-    param : dict
-        Parameters required by the residual function `residual` and Jacobian 
-        function `jacobian`.
-    acc_slope : function
-        Function to compute acceleration based on velocity and position.
-    ad_function : function
-        Function to compute air density as a function of height.
-
-    Returns
-    -------
-    v : array
-        Updated velocity vector [vx, vy].
-    p : array
-        Updated position vector [px, py].
-    a : array
-        Updated acceleration vector [ax, ay].
-    """
-       
-    uk = np.concatenate((p, v))
-    
-    res = partial(residual, k = uk, ad = ad_function, slope = acc_slope)
-    jac = partial(jacobian, ad = ad_function, pc = acc_slope)
-    
-    init_guess = uk
-    uk_new = newton_raphson(init_guess, dt, param, res, jac)
-    
-    split_uk = np.split(uk_new, 2)
-    
-    p = split_uk[0]
-    v = split_uk[1]
-    
-    a = acc_slope(v, p, param, ad_function)
-    
-    return v, p, a
 
 
 #%%   
@@ -714,8 +599,8 @@ def reentry(param, dt, ad_function, v0, alpha0, method):
     proj_dist = R_earth * theta[last_nonzero_index]
              
     return v, p, a, proj_dist, theta
- 
-    
+
+
 #%%  
 def plot_data(dt, v, p, a, proj_dist, theta): 
     """
@@ -787,7 +672,7 @@ def analyse_data(dt, v, p, a, proj_dist, theta, param):
     Analyzes the re-entry data to determine if the final velocity and maximum 
     acceleration meet specified criteria and if the projected distance falls 
     within a given range.
-    
+
     Parameters
     ----------
     dt : float
@@ -808,7 +693,7 @@ def analyse_data(dt, v, p, a, proj_dist, theta, param):
         - 'max_g' (float): Maximum allowable g-force.
         - 'dist_min' (float): Minimum allowable projected distance.
         - 'dist_max' (float): Maximum allowable projected distance.
-    
+
     Returns
     -------
     check: list
@@ -879,7 +764,7 @@ def many_pairs_parallel(args):
         Possible values: 
         'green' for good landing, 'blue' for touchdown velocity too large
         'orange' for acceleration too large, 'yellow' for projected distance 
-        out of bounds
+         out of bounds
         'purple' for combination of velocity and acceleration too large
         'red' for combination of acceleration and projected distance wrong
         'brown' for combination of velocity and projected distance wrong
@@ -984,7 +869,8 @@ def one_pair(param, dt, ad_function, v_init, alpha_init, method):
         trajectory.
     """
     
-    out = reentry(param, dt, ad_function, v_init, alpha_init, method)
+    out = reentry(param, dt, ad_function, v_init, alpha_init, 
+                  method)
     plot_data(dt, *out)
     result, max_g, last_v, proj_dist = analyse_data(dt, *out, param)
     
@@ -1000,7 +886,6 @@ def one_pair(param, dt, ad_function, v_init, alpha_init, method):
         print(f"Projected Distance out of bounds: {proj_dist:.2f} m")
     else: 
         print(f"Good Projected Distance: {proj_dist:.2f} m")
-    
 
 #%%
 def main():
@@ -1009,27 +894,29 @@ def main():
     paramReentry = {'m_sm': 12000., 'A_sm': 4*np.pi, 'Cd': 1.2, 'Cl': 1., 
                     'A_p': 301., 'Cdp': 1., 'size': 12000, 'h': 1.3*10**5,
                     'h_p': 1000., 'v_p': 100., 'last_v': 25., 'max_g': 15., 
-                    'dist_min': 2.5*10**6, 'dist_max': 4.5*10**6, 
-                    'newt_tol': 5*10**(-10), 'newt_max_it': 4, \
-                    'deriv_dp': 10**(-5)}
+                    'dist_min': 2.5*10**6, 'dist_max': 4.5*10**6}
 
     dt = 0.1
     filename = 'airdensity.txt'
+    
+    # Air Density Function choice. Options: ad_nasa(), ad_cubic_spline(), ad_exp()
     ad_function = ad_nasa(filename, 0)
-    method = backward_euler
+    
+    # Method choice. Options: euler, euler_cromer, rk2, rk4
+    method = rk4
     
     if __name__ == "__main__":
         
-        #Analysing many pairs of initial values with MP
-        #v_array = np.arange(7000, 11000, 25)
-        #alpha_array = np.arange(0, 5, 0.05)
-        #num_processes = 10
-        #many_pairs_mp(num_processes, paramReentry, dt, ad_function, v_array, 
-        #              alpha_array, method)
+        # Analysing many pairs of initial values with MP
+        v_array = np.arange(7000, 11000, 25)
+        alpha_array = np.arange(0, 5, 0.05)
+        num_processes = 10
+        many_pairs_mp(num_processes, paramReentry, dt, ad_function, v_array, 
+                      alpha_array, method)
         
-        #Plotting 1 pair of values
-        v_init = 9000.
-        alpha_init = np.deg2rad(3.)
+        # Plotting 1 pair of values
+        v_init = 8000.
+        alpha_init = np.deg2rad(5.)
         one_pair(paramReentry, dt, ad_function, v_init, alpha_init, method)
         
         end_time = time.time()

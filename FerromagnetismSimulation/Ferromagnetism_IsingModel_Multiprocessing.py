@@ -66,10 +66,11 @@ def cycle(grid, size, w):
     grid and either flips each spin or not based on the probability of flipping 
     (transition function) given the spins of the neighbors.
     
-    (x+1)%10 is equal to x for x=1:8 and equal to 0 for x=9.
+    (x+1)%10 is equal to x for x=1:8 and equal to 0 for x=9. This way, the 
+    grid's borders are closed.
     (sum_neib/2 + 3) maps from -6,-4,-2,0,2,4,6 to 0,1,2,3,4,5,6 and
-    (spin/2 + 1/2) maps from -1,1 to 0,1 ; this way, we pass the correct 
-    indexes to the w array, which contains the possible values for the 
+    (spin/2 + 1/2) maps from -1,1 to 0,1 ; this way, the correct indexes are 
+    passed to the w array, which contains the possible values for the 
     transition function.
         
     grid : previously initialized grid
@@ -152,7 +153,7 @@ def ising(size, num_cycles, t, h, initial_state = -1, statistics = True):
 def curie_temp_parallel(args):
     '''
     Performs a single ising simulation on a given set of arguments. Stores the
-    relevant variables in arrays (average magnetic_momentum, average energy, 
+    relevant variables in arrays (average magnetic momentum, average energy, 
     susceptibility, heat capacity). This function runs in parallel during the 
     multiprocessing.
     
@@ -206,7 +207,8 @@ def curie_temp_mp(num_processes, size, num_cycles, h, start_n, temperatures):
 def plotting_curie_temp(num_processes, size, num_cycles, h, start_n,
                          temperatures):
     '''
-    Plots the relevant variables for each temperature.
+    Plots the graphs for manetic momentum, energy, magnetic susceptibility and
+    heat capacity as a function of the temperature.
     
     temperatures : array containing the reduced temperatures to use as x axis
     num_processes, size, num_cycles, h, start_n : arguments to be passed to the
@@ -312,7 +314,7 @@ def plotting_hysteresis(num_processes, fields, size, num_cycles, temperatures,
     
     for i in range(temperatures.size):
         mag_list = mag_lists[i]
-        ax.plot(fields, mag_list, label=f'Temperature {i+1}')
+        ax.plot(fields, mag_list, label=f'Temperature = {temperatures[i]}')
 
     ax.set_xlabel('Magnetic Field (h)')
     ax.set_ylabel('Magnetic Momentum')
@@ -325,19 +327,29 @@ def plotting_hysteresis(num_processes, fields, size, num_cycles, temperatures,
 # %%
 def main():
     
-    grid_size = 10
+    # General Parameters    
+    grid_size = 50
     start_n = 10 * grid_size
-    ncycles = 1000
+    ncycles = 50000
     
-    temperatures = np.arange(0.1, 9, 0.1)
+    # Curie Temp Parameters
+    temps1 = np.arange(0.1, 4.4, 0.1)
+    temps2 = np.arange(4.45, 4.55, 0.001)
+    temps3 = np.arange(4.6, 9.1, 0.1)
+    temperatures = np.concatenate((temps1, temps2, temps3))
     h = 0
     
-    forward = np.arange(-4, 4.5, 0.5)
-    backward = np.arange(4, -4.5, -0.5)
+    # Hysteresis Parameters
+    max_h = 4
+    step = 0.1   
+    forward = np.arange(-max_h, max_h + step, step)
+    backward = np.arange(max_h, - (max_h + step), -step)
     external_fields = np.concatenate((forward, backward))
     hysteresis_temperatures = np.arange(2, 7, 1)
     
-    num_processes = 4
+    #MultiProcessing
+    num_processes = 10
+    
     
     if __name__ == "__main__":
         
